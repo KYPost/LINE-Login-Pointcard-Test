@@ -1,0 +1,256 @@
+:root {
+  --transition-speed: 0.5s;
+  --aspect-ratio: 1.69;
+  --logo-height: 350px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent; /* 移除手機點擊藍框 */
+}
+
+body {
+  background-color: #129696;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden; /* 禁止網頁本身捲動 */
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 主容器：390:659 自適應邏輯 */
+#app-container {
+  position: relative;
+  width: 100vw;
+  height: calc(100vw * var(--aspect-ratio));
+  max-height: 100vh;
+  /* 將共享背景圖放在這裡 */
+  background-image: url("img/bg_main@3x.jpg");
+  background-size: 100% 100%;
+  background-position: center;
+  overflow: hidden;
+  /* box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); */
+}
+
+/* 電腦版適配：當寬度大於 600px */
+@media (min-width: 601px) {
+  #app-container {
+    height: 100vh;
+    width: calc(100vh / var(--aspect-ratio));
+  }
+}
+/* 頁面通用與淡入淡出 */
+.page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed);
+  background-size: 100% 100%; /* 強制背景圖完全填滿容器邊界 */
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1;
+}
+
+.page.active {
+  opacity: 1;
+  visibility: visible;
+  z-index: 2;
+}
+
+/* 每個頁面的專屬背景 */
+#menu-page {
+  background-image: url("img/BG@3x.png");
+}
+#collect-page {
+  background-image: url("img/BG@3x.png");
+}
+#scanner-page {
+  background-image: url("img/BG@3x.png");
+}
+#redeem-page {
+  background-image: url("img/BG@3x.png");
+}
+#success-page {
+  background-image: url("img/BG@3x.png");
+}
+
+/* 統一的內容容器設定 */
+.content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 關鍵：從頂部開始排，利用 margin-top: auto 把按鈕推到底部 */
+  justify-content: flex-start;
+  box-sizing: border-box;
+  padding: 5% 5% 80px 5%; /* 上排預留一點空間，底排預留按鈕空間 */
+}
+
+/* 統一 Logo 樣式：不再飄浮，佔據真實空間 */
+.top-logo {
+  position: relative; /* 移除 absolute */
+  top: 0;
+  left: 0;
+  transform: none;
+
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  margin-bottom: 5%; /* Logo 與標題的間距 */
+
+  /* --- 調整這裡來控制 LOGO 往下移動的距離 --- */
+  margin-top: 10%; /* 原本可能是 0 或更小，增加這個數值就會往下推 */
+  margin-bottom: 5%; /* 與下方標題圖片的間距 */
+
+  flex-shrink: 0;
+}
+
+/* 統一標題圖片間距 */
+.menu-content,
+.collect-content {
+  margin-top: 0; /* 移除原本的 75px */
+  margin-bottom: 20px;
+  max-width: 280px;
+  flex-shrink: 0;
+}
+
+#menu-page .img-btn {
+  max-width: 300px;
+  margin-top: auto; /* 這會把按鈕推到 content 容器的最底部 */
+  margin-bottom: 80px;
+}
+
+#collect-page .content {
+  justify-content: flex-start; /* 覆蓋掉原本的 center */
+  padding-top: 5%; /* 根據你的 Top Logo 位置微調 */
+}
+
+/* 2. 移除 Logo Spacer，我們改用 Logo 的 margin 來控制 */
+#collect-page .logo-spacer {
+  display: none; /* 移除這個會佔空間但不穩定的 spacer */
+}
+
+#collect-page .img-btn {
+  max-width: 250px;
+  margin-top: auto; /* 在 flex-start 模式下，這會把按鈕推到最下面 */
+  margin-bottom: 15vh; /* 使用 vh 單位，讓它在不同高度的手機上都能往上提 */
+}
+
+/* 圖片按鈕 */
+.img-btn {
+  width: 75%;
+  height: auto;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.img-btn:active {
+  transform: scale(0.92); /* 點擊時的縮小回饋 */
+}
+
+.stamp-grid {
+  position: relative;
+  width: 110%;
+  /* 使用 aspect-ratio 確保容器高度隨寬度等比縮放 */
+  aspect-ratio: 1 / 0.7;
+  max-width: 500px;
+  margin-top: -10px; /* 關鍵：使用負值 margin 直接把整塊往上吸 */
+  margin-bottom: -40px;
+
+  flex-shrink: 0;
+}
+
+.stamp-icon {
+  position: absolute;
+  width: 26%; /* 你可以自由調整大小，現在不會跑位了 */
+  height: auto;
+  object-fit: contain;
+  /* 關鍵修正：將圖片中心點對齊座標 */
+  transform: translate(-50%, -50%);
+  transition: all 0.3s ease;
+}
+
+/* --- 重新微調座標 (現在是以中心點為基準) --- */
+/* 第一排 */
+#s1 {
+  top: 25%;
+  left: 20%;
+}
+#s2 {
+  top: 25%;
+  left: 50%;
+}
+#s3 {
+  top: 25%;
+  left: 80%;
+}
+
+/* 第二排 */
+#s4 {
+  top: 60%;
+  left: 35%;
+}
+#s5 {
+  top: 60%;
+  left: 65%;
+}
+
+/* 1. 統一 Scanner 頁面的 content 排版 */
+#scanner-page .content {
+  justify-content: flex-start; /* 與其他頁面一致 */
+  padding-top: 5%;
+}
+
+/* 2. 修正 Scanner 外框容器 */
+.scanner-window {
+  position: relative; /* 移除 absolute，改用 relative 參與排版 */
+  width: 280px;
+  height: 280px;
+  max-width: 80vw; /* 防止在窄手機上超出螢幕 */
+  max-height: 80vw;
+
+  border-radius: 20px;
+  background-image: url("img/Scanner@3x.png");
+  background-size: 100% 100%; /* 確保掃描框圖案完美貼合 */
+  background-repeat: no-repeat;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  /* 調整這裡來控制掃描框的上下位置 */
+  margin: 20px auto;
+  flex-shrink: 0;
+  overflow: hidden; /* 確保內部影片圓角生效 */
+}
+
+/* 3. 解決鏡頭對齊與不蓋過的問題 */
+#reader {
+  width: 90% !important;
+  height: 90% !important;
+  border: none !important; /* 移除外框 */
+  background: transparent !important; /* 讓底下的背景圖能透出來（如果鏡頭沒滿時） */
+  box-shadow: none !important;
+  background: rgb(255, 255, 255) !important; /* 相機啟動前顯示黑色 */
+  border-radius: 20px;
+}
+
+/* 強制相機影片填滿並裁切成圓角 */
+#reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important; /* 確保影片填滿正方形，不會有白邊 */
+  border-radius: 20px;
+}

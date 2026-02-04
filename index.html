@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>LIFF 集章遊戲</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app-container">
+      <div class="global-bg"></div>
+      <div id="menu-page" class="page active"></div>
+      <div id="menu-page" class="page active">
+        <div class="content">
+          <img src="img/title@3x.png" class="top-logo" alt="Logo" />
+          <img src="img/content@3x.png" class="menu-content" />
+          <img
+            src="img/button1@3x.png"
+            class="img-btn"
+            onclick="navigateTo('collect-page')"
+          />
+        </div>
+      </div>
+
+      <div id="collect-page" class="page">
+        <div class="content">
+          <img src="img/title@3x.png" class="top-logo" alt="Logo" />
+          <img src="img/ColletionTitle@3x.png" class="collect-content" />
+
+          <div class="stamp-grid">
+            <div class="stamp-row-top">
+              <img src="img/icon_1_off.png" class="stamp-icon" id="s1" />
+
+              <img src="img/icon_2_off.png" class="stamp-icon" id="s2" />
+
+              <img src="img/icon_3_off.png" class="stamp-icon" id="s3" />
+            </div>
+
+            <div class="stamp-row-bottom">
+              <img src="img/icon_4_off.png" class="stamp-icon" id="s4" />
+
+              <img src="img/icon_5_off.png" class="stamp-icon" id="s5" />
+            </div>
+          </div>
+
+          <img
+            src="img/button3@3x.png"
+            class="img-btn"
+            onclick="openScanner('collect')"
+          />
+        </div>
+      </div>
+
+      <div id="scanner-page" class="page">
+        <div class="content">
+          <img src="img/title@3x.png" class="top-logo" alt="Logo" />
+          <div class="scanner-window">
+            <div id="reader"></div>
+          </div>
+          <img src="img/button2@3x.png" class="img-btn" onclick="goBack()" />
+        </div>
+      </div>
+
+      <div id="redeem-page" class="page">
+        <div class="content">
+          <img src="img/content2@3x.png" class="gift-box" />
+          <img src="img/gift_content.png" class="gift-content" />
+          <img
+            src="img/button4@3x.png"
+            class="img-btn"
+            onclick="openScanner('redeem')"
+          />
+        </div>
+      </div>
+
+      <div id="success-page" class="page">
+        <div class="content">
+          <img src="img/content3@3x.png" class="gift-box" />
+          <img src="img/gift_opened_content.png" class="gift-content" />
+        </div>
+      </div>
+    </div>
+
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
