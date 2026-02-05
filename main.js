@@ -6,82 +6,82 @@ let isRedeemed = false;
 
 async function initializeLiff() {
   const myLiffId = "2009048038-fYCeyi8N";
+  const urlParams = new URLSearchParams(window.location.search);
+  const stampFromUrl = urlParams.get("stamp");
 
   // 檢查是否為本地開發環境 (localhost / 127.0.0.1)
   const isLocal =
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";
 
+  // 1. 先讀取進度
+  loadProgress();
+
+  // 【關鍵：紀錄掃碼前的狀態】
+  const isFirstTimeUser = collectedStamps.length === 0;
+
+  if (stampFromUrl) {
+    handleStamp(stampFromUrl); // 默默幫他蓋章
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   if (isLocal) {
-    console.warn(
-      "🔧 目前為開發者模式：偵測到未填寫 LIFF ID，已自動跳過 LINE 驗證。",
-    );
-
-    // 1. 先讀取進度
-    loadProgress();
-
-    // 2. 支援開發者在網址列輸入 ?stamp=1 來模擬掃碼
-    const urlParams = new URLSearchParams(window.location.search);
-    const stampIdFromUrl = urlParams.get("stamp");
-    if (stampIdFromUrl) {
-      handleStamp("stamp" + stampIdFromUrl);
-      // 蓋完章後清理網址，避免重刷頁面又多蓋一次
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    // 4. 渲染印章狀態
+    console.warn("🔧 開發者模式：跳過 LINE 驗證");
     renderStamps();
-
-    if (isRedeemed) {
-      navigateTo("success-page");
-    } else if (collectedStamps.length === 5 && !isRedeemed) {
-      navigateTo("redeem-page");
-    } else if (collectedStamps.length > 0) {
-      navigateTo("collect-page");
-    } else {
-      navigateTo("menu-page");
-    }
-
-    return; // 結束初始化，不執行下方的 liff.init
+    finalizeNavigation(isFirstTimeUser, stampFromUrl);
+    return;
   }
 
   try {
     await liff.init({ liffId: myLiffId });
 
-    if (liff.isLoggedIn()) {
-      loadProgress();
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const stampIdFromUrl = urlParams.get("stamp");
-
-      if (stampIdFromUrl) {
-        handleStamp("stamp" + stampIdFromUrl);
-
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
+    // 檢查外部瀏覽器
+    if (!liff.isInClient()) {
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.replace(
+          `https://liff.line.me/${myLiffId}${window.location.search}`,
         );
+        return;
       }
+      showExternalNotice(); // 記得要定義這個 function
+      return;
+    }
 
-      // 3. 最後渲染畫面
+    if (liff.isLoggedIn()) {
       renderStamps();
-
-      if (isRedeemed) {
-        navigateTo("success-page");
-      } else if (collectedStamps.length === 5) {
-        navigateTo("redeem-page");
-      } else if (collectedStamps.length > 0) {
-        navigateTo("collect-page");
-      } else {
-        navigateTo("menu-page");
-      }
+      finalizeNavigation(isFirstTimeUser, stampFromUrl);
     } else {
-      // 未登入的處理...
-      // liff.login();
+      liff.login();
     }
   } catch (error) {
     console.error("LIFF 初始化失敗", error);
+  }
+}
+
+function finalizeNavigation(isFirstTimeUser, stampFromUrl) {
+  if (isRedeemed) {
+    navigateTo("success-page");
+  } else if (isFirstTimeUser && stampFromUrl) {
+    // 新朋友掃碼，先看首頁介紹
+    navigateTo("menu-page");
+    setTimeout(() => alert("✨ 歡迎！第一枚印章已自動蓋上！"), 500);
+  } else if (collectedStamps.length === 5) {
+    navigateTo("redeem-page");
+  } else if (collectedStamps.length > 0) {
+    navigateTo("collect-page");
+  } else {
+    navigateTo("menu-page");
+  }
+}
+
+function forceOpenInLine() {
+  const liffUrl = "https://liff.line.me/2009048038-fYCeyi8N";
+
+  if (!liff.isInClient()) {
+    // 如果是行動裝置，嘗試直接導向
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      window.location.href = liffUrl;
+    }
   }
 }
 
@@ -204,10 +204,28 @@ async function openScanner(from) {
 function handleStamp(code) {
   if (!code) return;
 
-  const stampId = String(code).replace("stamp", "").trim();
-  console.log("🔍 處理後的 ID:", stampId);
+  let stampId = "";
 
-  if (["1", "2", "3", "4", "5"].includes(stampId)) {
+  // --- 核心解析邏輯 ---
+  if (code.includes("?")) {
+    // 情境：掃到網址 (例如 https://liff.line.me/.../?stamp=1)
+    try {
+      // 取得問號後面的參數部分
+      const queryString = code.split("?")[1];
+      const urlParams = new URLSearchParams(queryString);
+      stampId = urlParams.get("stamp");
+    } catch (e) {
+      console.error("解析網址失敗", e);
+    }
+  } else {
+    // 情境：掃到純字串 (例如 stamp1 或 1)
+    stampId = code.replace("stamp", "").trim();
+  }
+
+  // --- 驗證與執行 ---
+  const validIds = ["1", "2", "3", "4", "5"];
+
+  if (validIds.includes(stampId)) {
     if (!collectedStamps.includes(stampId)) {
       collectedStamps.push(stampId);
       saveProgress();
@@ -215,21 +233,31 @@ function handleStamp(code) {
       // 觸發動畫
       const stampImg = document.getElementById(`s${stampId}`);
       if (stampImg) {
-        stampImg.src = `img/icon_${stampId}_on.png`; // 換成彩色圖
-        stampImg.classList.add("stamp-active"); // 加上 CSS 動畫
+        // 確保圖片先換成彩色
+        stampImg.src = `img/icon_${stampId}_on.png`;
+        stampImg.style.opacity = "1";
+
+        // 加上動畫 Class
+        stampImg.classList.add("stamp-active");
+
+        // 動畫結束後移除 class，避免下次掃描同一顆章(雖然不會發生)或切換頁面時殘留
+        stampImg.addEventListener(
+          "animationend",
+          () => {
+            stampImg.classList.remove("stamp-active");
+          },
+          { once: true },
+        );
       }
 
-      renderStamps();
-
-      // 延遲一下再跳 alert，才不會擋住動畫
       setTimeout(() => {
+        renderStamps(); // 同步所有狀態（包含其他 4 顆章）
+
+        // 4. 檢查是否集滿，集滿才跳頁
         if (collectedStamps.length === 5) {
-          // alert("🎉 太強了！全部集齊！");
           navigateTo("redeem-page");
-        } else {
-          // 這裡可以換成更漂亮的彈窗
         }
-      }, 600);
+      }, 800); // 這裡的毫秒數建議略長於你的 CSS 動畫時間 (例如 0.6s -> 800ms)
     } else {
       alert("這個章已經蓋過了喔！");
     }
@@ -253,20 +281,6 @@ function renderStamps() {
   }
 }
 
-function saveProgress() {
-  console.log("💾 正在儲存進度...", collectedStamps);
-  localStorage.setItem("tcb_stamps_progress", JSON.stringify(collectedStamps));
-  localStorage.setItem("tcb_is_redeemed", JSON.stringify(isRedeemed));
-}
-
-function loadProgress() {
-  const savedStamps = localStorage.getItem("tcb_stamps_progress");
-  const savedRedeem = localStorage.getItem("tcb_is_redeemed");
-
-  if (savedStamps) collectedStamps = JSON.parse(savedStamps);
-  if (savedRedeem) isRedeemed = JSON.parse(savedRedeem); // 讀取兌換狀態
-}
-
 // 修改後的快捷鍵邏輯
 window.addEventListener("keydown", function (e) {
   // 使用 e.code 可以忽略大小寫，'KeyR' 代表鍵盤上的 R 位置
@@ -283,18 +297,64 @@ window.addEventListener("keydown", function (e) {
   }
 });
 
+// 修改後的儲存邏輯
+function saveProgress() {
+  const now = new Date().getTime(); // 取得目前的毫秒數
+  const progressData = {
+    stamps: collectedStamps,
+    isRedeemed: isRedeemed,
+    timestamp: now, // 紀錄存檔時間
+  };
+
+  console.log("💾 正在儲存進度 (24HR 有效)...", progressData);
+  localStorage.setItem("tcb_stamps_data_package", JSON.stringify(progressData));
+}
+
+// 修改後的讀取邏輯
+function loadProgress() {
+  const dataString = localStorage.getItem("tcb_stamps_data_package");
+
+  if (dataString) {
+    const data = JSON.parse(dataString);
+    const now = new Date().getTime();
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24小時的毫秒數
+
+    // 檢查是否超過 24 小時
+    if (now - data.timestamp > TWENTY_FOUR_HOURS) {
+      console.log("⏰ 進度已超過 24 小時，自動清空");
+      localStorage.removeItem("tcb_stamps_data_package");
+      collectedStamps = [];
+      isRedeemed = false;
+    } else {
+      // 沒過期，正常讀取
+      collectedStamps = data.stamps || [];
+      isRedeemed = data.isRedeemed || false;
+      console.log("✅ 成功載入未過期進度");
+    }
+  }
+}
+
 function resetProgress() {
-  // 在開發階段，我們可以先拿掉 confirm 讓測試更流暢
   console.log("正在重置進度...");
+  // 刪除合併後的資料包
+  localStorage.removeItem("tcb_stamps_data_package");
+
+  // 為了保險，舊的 Key 也順便清一下（如果你之前測試有殘留）
   localStorage.removeItem("tcb_stamps_progress");
   localStorage.removeItem("tcb_is_redeemed");
+
   location.reload();
 }
 
 function resetRedeemProgress() {
-  // 在開發階段，我們可以先拿掉 confirm 讓測試更流暢
   console.log("正在重置兌換進度...");
-  localStorage.setItem("tcb_is_redeemed", "false");
+  // 讀取目前的資料，修改兌換狀態後再存回去
+  const dataString = localStorage.getItem("tcb_stamps_data_package");
+  if (dataString) {
+    let data = JSON.parse(dataString);
+    data.isRedeemed = false;
+    localStorage.setItem("tcb_stamps_data_package", JSON.stringify(data));
+  }
   location.reload();
 }
 
