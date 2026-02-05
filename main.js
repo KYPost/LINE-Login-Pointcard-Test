@@ -9,13 +9,16 @@ async function initializeLiff() {
   const urlParams = new URLSearchParams(window.location.search);
   const stampFromUrl = urlParams.get("stamp");
 
-  // 檢查是否為本地開發環境 (localhost / 127.0.0.1)
+  // 1. 環境判斷 (提前到最前面)
   const isLocal =
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isInLine = navigator.userAgent.includes("Line");
 
   // 1. 先讀取進度
   loadProgress();
+  preloadImages();
 
   // 【關鍵：紀錄掃碼前的狀態】
   const isFirstTimeUser = collectedStamps.length === 0;
@@ -32,18 +35,24 @@ async function initializeLiff() {
     return;
   }
 
+  // --- 情況 B：外部行動瀏覽器 (強迫導回 LINE) ---
+  // 注意：不需要等到 liff.init，直接用 UserAgent 判斷最快
+  if (isMobile && !isInLine) {
+    console.log("🚀 偵測到外部瀏覽器，導向 LINE App...");
+    // 這裡要保留原始網址的 search，否則掃碼參數會丟失
+    const liffUrl = `https://liff.line.me/${myLiffId}${window.location.search}`;
+    window.location.replace(liffUrl);
+    return;
+  }
+
+  // --- 情況 C：進入正式 LIFF 初始化 ---
   try {
+    // 加上這行可以加速外部瀏覽器的偵測失敗判定
     await liff.init({ liffId: myLiffId });
 
-    // 檢查外部瀏覽器
+    // 再次檢查 (針對電腦版或特殊環境)
     if (!liff.isInClient()) {
-      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        window.location.replace(
-          `https://liff.line.me/${myLiffId}${window.location.search}`,
-        );
-        return;
-      }
-      showExternalNotice(); // 記得要定義這個 function
+      showExternalNotice();
       return;
     }
 
@@ -51,10 +60,24 @@ async function initializeLiff() {
       renderStamps();
       finalizeNavigation(isFirstTimeUser, stampFromUrl);
     } else {
+      // 未登入則導向登入頁
       liff.login();
     }
   } catch (error) {
     console.error("LIFF 初始化失敗", error);
+    // 即使失敗，如果是在行動裝置上，還是嘗試踢回 LINE 連結
+    if (isMobile && !isInLine) {
+      window.location.replace(
+        `https://liff.line.me/${myLiffId}${window.location.search}`,
+      );
+    }
+  }
+}
+
+function preloadImages() {
+  for (let i = 1; i <= 5; i++) {
+    const img = new Image();
+    img.src = `img/icon_${i}_on.png`;
   }
 }
 
@@ -62,14 +85,15 @@ function finalizeNavigation(isFirstTimeUser, stampFromUrl) {
   if (isRedeemed) {
     navigateTo("success-page");
   } else if (isFirstTimeUser && stampFromUrl) {
-    // 新朋友掃碼，先看首頁介紹
+    // 新朋友掃碼進來：去首頁看說明，不直接進集點卡
     navigateTo("menu-page");
-    setTimeout(() => alert("✨ 歡迎！第一枚印章已自動蓋上！"), 500);
   } else if (collectedStamps.length === 5) {
     navigateTo("redeem-page");
   } else if (collectedStamps.length > 0) {
+    // 老客戶或掃碼後回訪：直接看進度
     navigateTo("collect-page");
   } else {
+    // 全新使用者且沒掃碼：去首頁
     navigateTo("menu-page");
   }
 }
@@ -256,18 +280,25 @@ function handleStamp(code) {
       // 觸發動畫
       const stampImg = document.getElementById(`s${stampId}`);
       if (stampImg) {
-        // 確保圖片先換成彩色
+        // 1. 確保圖片先換成彩色
         stampImg.src = `img/icon_${stampId}_on.png`;
         stampImg.style.opacity = "1";
 
-        // 加上動畫 Class
-        stampImg.classList.add("stamp-active");
+        // --- 關鍵：強迫重繪 (Reflow) ---
+        // 這行程式碼能逼瀏覽器「先結算一次樣式」，確保動畫 Class 加入時能觸發
+        void stampImg.offsetWidth;
 
-        // 動畫結束後移除 class，避免下次掃描同一顆章(雖然不會發生)或切換頁面時殘留
+        // 2. 加上動畫 Class
+        requestAnimationFrame(() => {
+          stampImg.classList.add("stamp-active");
+        });
+
         stampImg.addEventListener(
           "animationend",
           () => {
-            stampImg.classList.remove("stamp-active");
+            // 動畫結束後不需要立刻移除，可以等下次掃描再移除，
+            // 或者保留它以維持 scale(1)
+            console.log("動畫播放完畢");
           },
           { once: true },
         );
