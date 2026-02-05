@@ -141,45 +141,63 @@ async function openScanner(from) {
 
   // --- 模式 A：兌換邏輯 (來自領獎頁) ---
   if (from === "redeem") {
-    if (isLocal) {
-      console.log("🛠️ LOCAL 模擬：執行兌換流程");
-      const userConfirmed = confirm(
-        "確定要兌換獎品嗎？\n(兌換後將標記為已兌換)",
-      );
-      if (userConfirmed) {
-        isRedeemed = true; // 這裡要設定狀態
-        saveProgress();
-        navigateTo("success-page");
-        // ... 動畫代碼 ...
-      }
-      return; // 執行完 LOCAL 兌換就結束
+    // 檢查點數是否真的滿了 (雙重保險)
+    if (collectedStamps.length < 5) {
+      alert("❌ 點數還沒集滿喔！");
+      return;
     }
 
-    // LINE 環境兌換
+    if (isLocal) {
+      const mockCode = prompt(
+        "🛠️ LOCAL 模擬：請輸入櫃檯兌換碼",
+        "REDEEM_COUPON_2026",
+      );
+      if (mockCode === "REDEEM_COUPON_2026") {
+        isRedeemed = true;
+        saveProgress();
+        navigateTo("success-page");
+      } else {
+        alert("無效的代碼");
+      }
+      return;
+    }
+
+    // --- LINE 環境兌換 (掃描核銷) ---
     if (liff.isInClient()) {
       try {
-        await liff.sendMessages([
-          {
+        const result = await liff.scanCodeV2();
+        const scannedCode = result.value;
+
+        if (!scannedCode) return; // 使用者自己關掉掃描器
+
+        // 判斷掃到的內容是否正確
+        if (scannedCode.includes("REDEEM_COUPON_2026")) {
+          isRedeemed = true;
+          saveProgress();
+
+          // 讓使用者看見成功，不要直接關視窗
+          alert("✅ 核銷成功！請向工作人員領取贈品");
+          navigateTo("success-page");
+
+          // 如果你還是想傳訊息給官方帳號做紀錄，可以保留這段：
+          /*
+          await liff.sendMessages([{
             type: "text",
-            text: "🎉 我已集滿 5 點，完成兌換任務！",
-          },
-        ]);
-
-        isRedeemed = true; // 先設為 true
-        saveProgress(); // 先存檔
-
-        alert("✅ 兌換券已傳送！");
-        liff.closeWindow(); // 最後再關窗
+            text: "🎉 我已完成現場核銷，兌換獎品囉！"
+          }]);
+          */
+        } else {
+          alert("❌ 錯誤的兌換碼！請掃描櫃檯專用的核銷 QR Code");
+        }
       } catch (error) {
-        // 如果使用者沒授權「傳送訊息」權限，會跑這裡
-        console.error("傳送失敗", error);
-        alert("請先授權傳送訊息權限，或直接出示此畫面給工作人員。");
-        navigateTo("success-page"); // 失敗也要讓他進成功頁，不然會卡死
+        console.error("掃描或兌換失敗", error);
+        if (!error.message.includes("closed")) {
+          alert("啟動掃描失敗，請確認相機權限。");
+        }
       }
     }
     return;
   }
-
   // --- 模式 B：集章邏輯 (來自掃描按鈕) ---
   if (isLocal) {
     console.log("🛠️ LOCAL 模擬：掃描中...");
@@ -203,6 +221,11 @@ async function openScanner(from) {
 // --- 5. UI 更新 (讓圖片變亮) ---
 function handleStamp(code) {
   if (!code) return;
+
+  if (code.includes("REDEEM_COUPON_2026")) {
+    executeRedemption();
+    return; // 跳出，不執行下方的蓋章邏輯
+  }
 
   let stampId = "";
 
@@ -264,20 +287,65 @@ function handleStamp(code) {
   }
 }
 
-function renderStamps() {
+function renderStamps(skipId = null) {
   console.log("正在渲染章印...");
   for (let i = 1; i <= 5; i++) {
+    // 如果這顆章正在跑動畫，跳過它，不准重寫它的 src
+    if (String(i) === String(skipId)) continue;
+
     const stampImg = document.getElementById(`s${i}`);
     if (stampImg) {
       const isCollected = collectedStamps.includes(String(i));
-      if (isCollected) {
-        stampImg.src = `img/icon_${i}_on.png`;
-        stampImg.style.opacity = "1";
-      } else {
-        stampImg.src = `img/icon_${i}_off.png`;
-        stampImg.style.opacity = "0.8";
+      const targetSrc = isCollected
+        ? `img/icon_${i}_on.png`
+        : `img/icon_${i}_off.png`;
+
+      // 優化：只有當 src 真的不同時才更換，減少瀏覽器負擔
+      if (stampImg.getAttribute("src") !== targetSrc) {
+        stampImg.src = targetSrc;
       }
+
+      stampImg.style.opacity = isCollected ? "1" : "0.8";
     }
+  }
+}
+
+async function executeRedemption() {
+  // 1. 基本門檻檢查
+  if (collectedStamps.length < 5) {
+    alert("❌ 您的點數不足，無法兌換禮品！");
+    return;
+  }
+
+  if (isRedeemed) {
+    alert("⚠️ 此禮品已經兌換過了喔！");
+    navigateTo("success-page");
+    return;
+  }
+
+  // 2. 啟動 LINE 掃描器
+  try {
+    const result = await liff.scanCodeV2();
+    const code = result.value;
+
+    if (!code) return; // 使用者取消掃描
+
+    // 3. 檢查掃到的內容是否為正確的「核銷密語」
+    // 這裡的字串要跟櫃檯 QR Code 內容一模一樣
+    if (code.includes("REDEEM_COUPON_2026")) {
+      // 成功核銷邏輯
+      isRedeemed = true;
+      saveProgress();
+
+      alert("✅ 核銷成功！請向店員領取獎品");
+      navigateTo("success-page");
+      triggerConfetti();
+    } else {
+      alert("❌ 錯誤的兌換碼，請掃描櫃檯專用的兌換 QR Code");
+    }
+  } catch (error) {
+    console.error("掃描失敗:", error);
+    alert("掃描功能啟動失敗，請確認是否授權相機權限。");
   }
 }
 
