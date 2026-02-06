@@ -35,22 +35,25 @@ async function initializeLiff() {
     return;
   }
 
-  // --- 情況 B：外部行動瀏覽器 (強迫導回 LINE) ---
-  // 注意：不需要等到 liff.init，直接用 UserAgent 判斷最快
-  if (isMobile && !isInLine) {
-    console.log("🚀 偵測到外部瀏覽器，導向 LINE App...");
-    // 這裡要保留原始網址的 search，否則掃碼參數會丟失
-    const liffUrl = `https://liff.line.me/${myLiffId}${window.location.search}`;
-    window.location.replace(liffUrl);
+  const hasLiffState = urlParams.has("liff.state");
+
+  if (isMobile && !isInLine && !hasLiffState) {
+    // 取得目前的參數，例如 ?stamp=1
+    const currentSearch = window.location.search;
+
+    // 建議使用 liff.line.me 格式，因為它對參數的相容性較好
+    // 如果你堅持要用 line.me/R/app/，記得要把參數接在後面
+    const schemeUrl = `https://line.me/R/app/${myLiffId}${currentSearch}`;
+
+    console.log("🚀 強制喚醒 LINE App:", schemeUrl);
+    window.location.replace(schemeUrl);
     return;
   }
 
-  // --- 情況 C：進入正式 LIFF 初始化 ---
+  // --- 情況 C：正式初始化 ---
   try {
-    // 加上這行可以加速外部瀏覽器的偵測失敗判定
     await liff.init({ liffId: myLiffId });
 
-    // 再次檢查 (針對電腦版或特殊環境)
     if (!liff.isInClient()) {
       showExternalNotice();
       return;
@@ -60,17 +63,10 @@ async function initializeLiff() {
       renderStamps();
       finalizeNavigation(isFirstTimeUser, stampFromUrl);
     } else {
-      // 未登入則導向登入頁
       liff.login();
     }
   } catch (error) {
     console.error("LIFF 初始化失敗", error);
-    // 即使失敗，如果是在行動裝置上，還是嘗試踢回 LINE 連結
-    if (isMobile && !isInLine) {
-      window.location.replace(
-        `https://liff.line.me/${myLiffId}${window.location.search}`,
-      );
-    }
   }
 }
 
@@ -99,7 +95,7 @@ function finalizeNavigation(isFirstTimeUser, stampFromUrl) {
 }
 
 function forceOpenInLine() {
-  const liffUrl = "https://liff.line.me/2009048038-fYCeyi8N";
+  const liffUrl = "https://line.me/R/app/2009048038-fYCeyi8N";
 
   if (!liff.isInClient()) {
     // 如果是行動裝置，嘗試直接導向
