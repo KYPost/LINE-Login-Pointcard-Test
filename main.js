@@ -233,9 +233,15 @@ async function openScanner(from) {
   }
   try {
     const result = await liff.scanCodeV2();
-    handleStamp(result.value);
+    const scannedCode = result.value;
+    if (!scannedCode) return;
+
+    // 關鍵：延遲執行，避開掃描器關閉時的效能巔峰
+    setTimeout(() => {
+      handleStamp(scannedCode);
+    }, 300); // 300ms 是體感最流暢的延遲，剛好避開閃爍
   } catch (error) {
-    console.warn("掃描取消", error);
+    console.warn("掃描失敗", error);
   }
 }
 // --- 5. UI 更新 (讓圖片變亮) ---
@@ -276,28 +282,21 @@ function handleStamp(code) {
       // 觸發動畫
       const stampImg = document.getElementById(`s${stampId}`);
       if (stampImg) {
-        // 1. 確保圖片先換成彩色
+        // 1. 先換圖，移除舊 Class (重置狀態)
         stampImg.src = `img/icon_${stampId}_on.png`;
         stampImg.style.opacity = "1";
+        stampImg.classList.remove("stamp-active");
 
-        // --- 關鍵：強迫重繪 (Reflow) ---
-        // 這行程式碼能逼瀏覽器「先結算一次樣式」，確保動畫 Class 加入時能觸發
+        // 2. 強迫重繪
         void stampImg.offsetWidth;
 
-        // 2. 加上動畫 Class
+        // 3. 雙重保險觸發動畫
         requestAnimationFrame(() => {
-          stampImg.classList.add("stamp-active");
+          requestAnimationFrame(() => {
+            stampImg.classList.add("stamp-active");
+            console.log("🔥 動畫 Class 已正式掛載");
+          });
         });
-
-        stampImg.addEventListener(
-          "animationend",
-          () => {
-            // 動畫結束後不需要立刻移除，可以等下次掃描再移除，
-            // 或者保留它以維持 scale(1)
-            console.log("動畫播放完畢");
-          },
-          { once: true },
-        );
       }
 
       setTimeout(() => {
@@ -315,10 +314,9 @@ function handleStamp(code) {
 }
 
 function renderStamps(skipId = null) {
-  console.log("正在渲染章印...");
   for (let i = 1; i <= 5; i++) {
-    // 如果這顆章正在跑動畫，跳過它，不准重寫它的 src
-    if (String(i) === String(skipId)) continue;
+    // 嚴格跳過正在播放動畫的那顆章
+    if (skipId && String(i) === String(skipId)) continue;
 
     const stampImg = document.getElementById(`s${i}`);
     if (stampImg) {
@@ -327,11 +325,10 @@ function renderStamps(skipId = null) {
         ? `img/icon_${i}_on.png`
         : `img/icon_${i}_off.png`;
 
-      // 優化：只有當 src 真的不同時才更換，減少瀏覽器負擔
+      // 關鍵：只有路徑真的「不同」時才變更 src
       if (stampImg.getAttribute("src") !== targetSrc) {
         stampImg.src = targetSrc;
       }
-
       stampImg.style.opacity = isCollected ? "1" : "0.8";
     }
   }
