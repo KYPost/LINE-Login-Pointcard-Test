@@ -239,7 +239,7 @@ async function openScanner(from) {
     // 關鍵：延遲執行，避開掃描器關閉時的效能巔峰
     setTimeout(() => {
       handleStamp(scannedCode);
-    }, 300); // 300ms 是體感最流暢的延遲，剛好避開閃爍
+    }, 500); // 300ms 是體感最流暢的延遲，剛好避開閃爍
   } catch (error) {
     console.warn("掃描失敗", error);
   }

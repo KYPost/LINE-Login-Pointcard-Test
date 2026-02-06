@@ -25,14 +25,26 @@ body {
 /* 主容器：390:659 自適應邏輯 */
 #app-container {
   width: 100%;
-  height: 100vh; /* 填滿 LIFF 提供的所有空間 */
+  height: 100dvh;
+  min-height: 600px;
+
   max-width: 500px;
   margin: 0 auto;
   position: relative;
   /* 將共享背景圖放在這裡 */
-  background-image: url("img/BG@3x.png");
-  background-size: 100% 100%;
-  background-position: center;
+  background-image:
+    url("img/BG-Middle-logo@3x.png"), url("img/BG-NoLogo@3x.png");
+  /* 對應上面兩張圖的尺寸：Logo 設為 70%，底圖鋪滿 100% */
+  background-size:
+    65% auto,
+    100% 100%;
+
+  /* 對應上面兩張圖的位置：Logo 放在中間偏下 60% 處，底圖置中 */
+  background-position:
+    center 70%,
+    center center;
+
+  background-repeat: no-repeat;
   overflow: hidden;
   /* box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); */
 }
@@ -50,9 +62,17 @@ body {
 
 .menu-top-logo {
   margin-top: 8%;
-  width: 100%;
-  max-width: 320px;
+  width: 80%;
+  max-width: 500px;
   height: auto;
+}
+
+.menu-middle-logo {
+  margin-top: 60%;
+  width: 70%;
+  max-width: 500px;
+  height: auto;
+  z-index: -10000;
 }
 
 .top-logo-spacer {
@@ -158,19 +178,22 @@ body {
 /* 統一標題圖片間距 */
 .menu-content {
   margin-top: 10px; /* 移除原本的 75px */
-  max-width: 240px;
+  width: 70%;
+  max-width: 500px;
   flex-shrink: 0;
 }
 
 .collect-content {
   margin-top: -20px; /* 移除原本的 75px */
   margin-bottom: 20px;
-  max-width: 240px;
+  width: 70%;
+  max-width: 500px;
   flex-shrink: 0;
 }
 
 #menu-page .img-btn {
-  max-width: 300px;
+  width: 70%;
+  max-width: 500px;
   margin-top: 5vh; /* 這會把按鈕推到 content 容器的最底部 */
 }
 
@@ -184,12 +207,6 @@ body {
   display: none; /* 移除這個會佔空間但不穩定的 spacer */
 }
 
-#collect-page .img-btn {
-  max-width: 250px;
-  margin-top: auto; /* 在 flex-start 模式下，這會把按鈕推到最下面 */
-  margin-bottom: 15vh; /* 使用 vh 單位，讓它在不同高度的手機上都能往上提 */
-}
-
 /* 圖片按鈕 */
 .img-btn {
   width: 75%;
@@ -200,6 +217,13 @@ body {
 
 .img-btn:active {
   transform: scale(0.92); /* 點擊時的縮小回饋 */
+}
+
+#collect-page .img-btn {
+  width: 70%;
+  max-width: 500px;
+  margin-top: auto; /* 在 flex-start 模式下，這會把按鈕推到最下面 */
+  margin-bottom: 15vh; /* 使用 vh 單位，讓它在不同高度的手機上都能往上提 */
 }
 
 .stamp-grid {
@@ -216,14 +240,16 @@ body {
 
 .stamp-icon {
   position: absolute;
-  width: 26%; /* 你可以自由調整大小，現在不會跑位了 */
+  width: 26%;
   height: auto;
   object-fit: contain;
-  /* 關鍵修正：將圖片中心點對齊座標 */
-  transform: translate(-50%, -50%);
-  transition: all 0.3s ease;
+  /* 初始狀態 */
+  transform: translate(-50%, -50%) scale(1);
+  /* 移除 all，避免干擾 animation */
+  transition: opacity 0.3s ease;
   transform-origin: center center;
-  backface-visibility: hidden; /* 防止動畫抖動 */
+  backface-visibility: hidden;
+  will-change: transform, opacity; /* 預告瀏覽器這兩個會變動 */
 }
 
 /* --- 重新微調座標 (現在是以中心點為基準) --- */
@@ -317,8 +343,8 @@ body {
 
 /* 禮物外盒/背景圖 (content2@3x.png) */
 .gift-box {
-  width: 90%;
-  max-width: 250px;
+  width: 70%;
+  max-width: 500px;
   height: auto;
   margin-bottom: 10vh;
   animation: float 3s ease-in-out infinite;
@@ -327,7 +353,7 @@ body {
 /* 領獎按鈕 (button4@3x.png) */
 #redeem-page .img-btn {
   width: 70%;
-  max-width: 250px;
+  max-width: 500px;
   cursor: pointer;
   transition: transform 0.1s ease;
   margin-top: 20px;
@@ -341,22 +367,31 @@ body {
 
 /*==================動畫=================*/
 
-/* 印章蓋下去的動畫 */
 @keyframes stampIn {
   0% {
-    /* 必須保留原本的定位 translate，再接上縮放 scale */
-    transform: translate(-50%, -50%) scale(3);
+    /* 從 2 倍大開始即可，4 倍太遠會顯得慢 */
+    transform: translate(-50%, -50%) scale(2.5);
     opacity: 0;
-    filter: brightness(2);
+    filter: brightness(2) blur(2px); /* 加入一點模糊感模擬位移速率 */
   }
-  70% {
-    transform: translate(-50%, -50%) scale(0.85);
+  30% {
+    /* 快速到達目標大小並稍微壓縮 */
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 1;
+    filter: brightness(1) blur(0);
+  }
+  55% {
+    /* 彈跳起來 */
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  80% {
+    /* 二次小壓縮 */
+    transform: translate(-50%, -50%) scale(0.98);
   }
   100% {
-    /* 最終狀態也要保留 translate */
+    /* 最終定位 */
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
-    filter: brightness(1);
   }
 }
 
@@ -385,9 +420,8 @@ body {
 }
 
 .stamp-active {
-  /* 加上 will-change 讓瀏覽器提前優化，動畫更順暢 */
-  will-change: transform, opacity;
-  animation: stampIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  /* 時間縮短至 0.4s，使用 back-out 類型的曲線 */
+  animation: stampIn 0.4s cubic-bezier(0.2, 0, 0.2, 1) forwards !important;
+  z-index: 99;
   filter: grayscale(0) !important;
-  opacity: 1 !important;
 }
